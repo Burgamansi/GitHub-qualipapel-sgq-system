@@ -1,0 +1,5 @@
+{
+  "name": "QUALIPAPEL SGQ System",
+  "description": "A dynamic RNC management dashboard that processes uploaded Excel files to generate real-time KPIs, charts, and reports for Quality Control.",
+  "requestFramePermissions": []
+}
