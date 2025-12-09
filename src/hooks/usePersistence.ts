@@ -39,6 +39,10 @@ export function usePersistence() {
         }
     }, []);
 
+    const saveAllData = useCallback(() => {
+        saveData(data);
+    }, [data, saveData]);
+
     const clearData = useCallback(() => {
         localStorage.removeItem(STORAGE_KEY);
         setData([]);
@@ -49,6 +53,7 @@ export function usePersistence() {
         data,
         setData,
         saveData,
+        saveAllData,
         clearData
     };
 }

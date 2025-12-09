@@ -14,7 +14,7 @@ import { usePersistence } from './hooks/usePersistence';
 import { Toaster, toast } from 'react-hot-toast';
 
 function App() {
-  const { data: rncData, setData: setRncData, saveData, clearData } = usePersistence();
+  const { data: rncData, setData: setRncData, saveData, saveAllData, clearData } = usePersistence();
   const [activeView, setActiveView] = useState('general');
   const [showLanding, setShowLanding] = useState(true);
   const [showEndSession, setShowEndSession] = useState(false);
@@ -142,20 +142,19 @@ function App() {
   };
 
   const handleManualSave = useCallback(() => {
-    saveData(rncData);
+    saveAllData();
     toast.success("Arquivos salvos com sucesso!");
-  }, [rncData, saveData]);
+  }, [saveAllData]);
 
   const handleSaveAndExit = () => {
-    saveData(rncData);
+    saveAllData();
     toast.success("Arquivos salvos com sucesso!");
 
     // Delay for toast visibility before redirecting
     setTimeout(() => {
       setShowEndSession(false);
       setShowLanding(true);
-      // Optional: clear current state in memory
-      setRncData([]);
+      // Data is NOT cleared here, complying with "Sair e Salvar" requirements
       clearFilters();
     }, 800);
   };
