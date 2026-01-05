@@ -172,6 +172,7 @@ function App() {
       <LandingPage
         onDataLoaded={handleDataLoaded}
         onEnterDashboard={() => setShowLanding(false)}
+        savedDataCount={rncData.length}
       />
     );
   }
