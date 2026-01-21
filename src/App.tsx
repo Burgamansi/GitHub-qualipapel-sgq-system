@@ -33,7 +33,7 @@ function App() {
   }, [rncData]);
 
   // Helper to append data (used by both LandingPage and Dashboard Header)
-  // Implements strict deduplication logic
+  // Implements strict deduplication logic and AUTO-SAVES
   const handleDataLoaded = useCallback((newData: RNCRecord[]) => {
     // 1. Clean new data: Filter valid numbers and remove duplicates within new batch
     const cleaned = newData
@@ -46,32 +46,48 @@ function App() {
       const merged = [...prev, ...cleaned];
 
       // 2. Remove duplicates also in the final merge
-      return merged.filter(
+      const finalData = merged.filter(
         (rec, idx, arr) =>
           arr.findIndex(x => x.number === rec.number) === idx
       );
+
+      // AUTO-SAVE IMMEDIATELY
+      saveData(finalData);
+
+      return finalData;
     });
-  }, [setRncData]);
+  }, [setRncData, saveData]);
 
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
       const files = Array.from(event.target.files) as File[];
       const allData: RNCRecord[] = [];
+      let hasError = false;
+
+      // Optional: Show loading state if needed, but for now we just process
 
       for (const file of files) {
         try {
           const records = await parseExcelFile(file);
-          allData.push(...records);
+          if (records.length > 0) {
+            allData.push(...records);
+          }
         } catch (err) {
           console.error(`Error parsing file ${file.name}`, err);
-          alert(`Erro ao ler o arquivo ${file.name}. Verifique se é um Excel válido.`);
+          hasError = true;
+          toast.error(`Erro ao ler o arquivo ${file.name}`);
         }
       }
 
       if (allData.length > 0) {
         handleDataLoaded(allData);
-        event.target.value = '';
+        toast.success("Dados cadastrados");
+      } else if (!hasError) {
+        toast("Nenhum dado válido encontrado nos arquivos.", { icon: '⚠️' });
       }
+
+      // Reset input
+      event.target.value = '';
     }
   }, [handleDataLoaded]);
 
