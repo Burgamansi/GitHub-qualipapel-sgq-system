@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: linear-gradient(180deg, #0c0f0d 0%, #050d0a 100%);
+  color: #e5e7eb;
+  min-height: 100vh;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.glass-panel {
+  background: rgba(20, 37, 28, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 212, 106, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.leaf {
+    position: absolute;
+    color: #00e64d;
+    filter: drop-shadow(0 0 10px #00e64d);
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0c1f15; 
+}
+::-webkit-scrollbar-thumb {
+  background: #1f4f38; 
+  border-radius: 3px;
+}
