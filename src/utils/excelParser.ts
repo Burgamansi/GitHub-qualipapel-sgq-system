@@ -189,7 +189,7 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
     const maxRow = Math.min(range.e.r, 50); // Search top 50 rows
     const maxCol = Math.min(range.e.c, 30); // Search first 30 cols
 
-    // Normalize label for comparison (trim + collapse spaces + lowercase)
+    // Normalize label for comparison
     const cleanLabel = labelText.trim().replace(/\s+/g, " ").toLowerCase();
 
     for (let R = range.s.r; R <= maxRow; ++R) {
@@ -198,8 +198,8 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
         const cell = formSheet[addr];
         if (cell && cell.v) {
           const cellVal = String(cell.v).trim().replace(/\s+/g, " ").toLowerCase();
-          // Check exact match (normalized)
-          if (cellVal === cleanLabel) {
+          // Changed to INCLUDES for robustness (e.g. "Responsável:" matches "Responsável-N/C:")
+          if (cellVal.includes(cleanLabel)) {
             // Found! Return Right Neighbor (C+1)
             const rightAddr = XLSX.utils.encode_cell({ c: C + 1, r: R });
             return getMergedValue(rightAddr);
@@ -211,33 +211,36 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   };
 
   // RNC Number Extraction
-  // 1. Label Search
+  // Priority 1: Label Search "N° de Registro RNC -" (User Ref)
+  // Priority 2: Fallbacks H5, G4
   let rncNumber = getValueRightOfLabel("N° de Registro RNC -");
-  // 2. Fallbacks
+  if (!rncNumber) rncNumber = getValueRightOfLabel("N° de Registro RNC"); // Loose check
   if (!rncNumber) rncNumber = getMergedValue("H5");
   if (!rncNumber) rncNumber = getMergedValue("G4");
   if (!rncNumber) rncNumber = "S/N";
 
   // Responsible Extraction
-  // Priority: 1. Strict H9 (User requirement: H9 First)
+  // Priority 1: H9 (Strict User Requirement)
   let responsible = getMergedValue("H9");
 
-  // Priority 2. Label Search (Feedback: "Responsável")
+  // Priority 2: Label Search
   if (!responsible) responsible = getValueRightOfLabel("Responsável-N/C:");
   if (!responsible) responsible = getValueRightOfLabel("Responsável");
   if (!responsible) responsible = getValueRightOfLabel("Responsavel");
 
-  // Priority 3. Fallbacks
+  // Priority 3: Fallbacks
   if (!responsible) responsible = getMergedValue("G8");
 
-  // Normalize Responsible
-  // Ensure we never return undefined/null, always a trimmed string
+  // Normalize Responsible (Canonical)
   responsible = responsible.trim();
-  if (!responsible || responsible === "" || responsible === "0") responsible = "Não atribuído";
+  if (!responsible || responsible === "" || responsible === "0" || responsible.toLowerCase() === "não atribuído") {
+    responsible = "Não atribuído";
+  }
 
-  // LOG FINAL VALUE (User requirement)
+  // Debug Log (Critical for verification)
   if (process.env.NODE_ENV === 'development') {
-    console.log("[RNC FINAL]", responsible);
+    console.log(`[PARSER RAW] H9: "${getMergedValue("H9")}"`);
+    console.log(`[PARSER FINAL] RNC: ${rncNumber}, Res: "${responsible}"`);
   }
 
   const rawType = String(read(formSheet, "J5", "Não informado")).trim();
@@ -412,7 +415,15 @@ export const parseExcelFile = async (file: File): Promise<RNCRecord[]> => {
         }
 
         // 3. Fallback: Try Form Layout (Original default behavior)
-        resolve(parseFormLayout(workbook));
+        const finalRecords = parseFormLayout(workbook);
+
+        if (process.env.NODE_ENV === 'development' && finalRecords.length > 0) {
+          console.log("[IMPORT CHECK] sample rnc:", finalRecords[0]);
+          console.log("[IMPORT CHECK] keys:", Object.keys(finalRecords[0] || {}));
+          console.log("[IMPORT CHECK] responsavel:", finalRecords[0]?.responsible); // Using 'responsible' from RNCRecord interface
+        }
+
+        resolve(finalRecords);
 
       } catch (error) {
         console.error("Error parsing excel", error);
