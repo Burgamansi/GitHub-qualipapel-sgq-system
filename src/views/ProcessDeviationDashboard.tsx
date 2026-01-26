@@ -120,6 +120,10 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
         // 1. Chart Data (Split multiple responsibles)
         openRNCs.forEach(d => {
             const rawRes = d.responsible || "Não atribuído";
+
+            // FILTER: Never render data with "Não atribuído" in chart (User requirement)
+            if (rawRes === "Não atribuído") return;
+
             // Create array of cleaned names
             const names = rawRes.split(/[\/,;-]+/).map(s => s.trim()).filter(s => s !== "");
 
@@ -135,9 +139,15 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
             .sort((a, b) => b.count - a.count);
 
         // 2. List Data (Top 10 Open - Priority by Days Open Descending)
+        // Ensure calculations are safe (prevent NaN)
         const listData = [...openRNCs].map(d => {
-            const diff = d.openDate ? (new Date().getTime() - new Date(d.openDate).getTime()) : 0;
-            const daysOpen = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            let daysOpen = 0;
+            if (d.openDate) {
+                const diff = new Date().getTime() - new Date(d.openDate).getTime();
+                daysOpen = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            }
+            // Fallback for safety
+            if (isNaN(daysOpen)) daysOpen = 0;
             return { ...d, daysOpen };
         })
             .sort((a, b) => b.daysOpen - a.daysOpen) // Oldest first (Highest priority)

@@ -219,18 +219,25 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   if (!rncNumber) rncNumber = "S/N";
 
   // Responsible Extraction
-  // 1. Label Search
-  let responsible = getValueRightOfLabel("Responsável-N/C:");
-  // 2. Fallbacks
-  if (!responsible) responsible = getMergedValue("H9");
+  // Priority: 1. Strict H9 (User requirement: H9 First)
+  let responsible = getMergedValue("H9");
+
+  // Priority 2. Label Search (Feedback: "Responsável")
+  if (!responsible) responsible = getValueRightOfLabel("Responsável-N/C:");
+  if (!responsible) responsible = getValueRightOfLabel("Responsável");
+  if (!responsible) responsible = getValueRightOfLabel("Responsavel");
+
+  // Priority 3. Fallbacks
   if (!responsible) responsible = getMergedValue("G8");
 
   // Normalize Responsible
+  // Ensure we never return undefined/null, always a trimmed string
   responsible = responsible.trim();
-  if (!responsible) responsible = "Não atribuído";
+  if (!responsible || responsible === "" || responsible === "0") responsible = "Não atribuído";
 
+  // LOG FINAL VALUE (User requirement)
   if (process.env.NODE_ENV === 'development') {
-    console.log(`FORM PARSER -> RNC: ${rncNumber}, Responsible: "${responsible}"`);
+    console.log("[RNC FINAL]", responsible);
   }
 
   const rawType = String(read(formSheet, "J5", "Não informado")).trim();
