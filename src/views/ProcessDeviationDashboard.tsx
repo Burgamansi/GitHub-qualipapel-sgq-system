@@ -59,12 +59,18 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
         const total = cleanData.length;
         const closedRecords = cleanData.filter(d => d.status === RNCStatus.CLOSED && typeof d.days === 'number');
         const closed = cleanData.filter(d => d.status === RNCStatus.CLOSED).length;
+        const open = total - closed; // STRICT: derived from subtraction
         const efficiency = total > 0 ? Math.round((closed / total) * 100) : 0;
 
         const totalDays = closedRecords.reduce((acc, r) => acc + (r.days || 0), 0);
         const avgDays = closedRecords.length > 0 ? (totalDays / closedRecords.length) : 0;
 
-        return { total, closed, efficiency, avgDays };
+        if (process.env.NODE_ENV === 'development') {
+            console.log("--- KPI AUDIT ---");
+            console.log({ total, fechadas: closed, abertas: open });
+        }
+
+        return { total, open, closed, efficiency, avgDays };
     }, [cleanData]);
 
     // Ishikawa Logic
@@ -258,7 +264,7 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                 <div className="flex flex-col mb-6">
                     <p className="text-white text-lg font-bold leading-normal">RNCs e Responsáveis — Prioridades 🎯</p>
                     <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Abertas: {backlogChartData.reduce((acc, c) => acc + c.count, 0)}</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Abertas: {kpis.open}</span>
                         <span className="text-white/20">•</span>
                         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Fechadas: {kpis.closed}</span>
                         <span className="text-white/20">•</span>
