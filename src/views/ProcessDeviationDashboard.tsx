@@ -6,27 +6,70 @@ interface Props {
     data: RNCRecord[];
 }
 
+import { normalizeStatus } from '../utils/excelParser';
+
 export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
-    // Compute KPIs
+    // 0. DEDUPLICATION & NORMALIZATION (Strict)
+    const cleanData = useMemo(() => {
+        if (!data || data.length === 0) return [];
+
+        const uniqueMap = new Map<string, RNCRecord>();
+        const duplicates: string[] = [];
+
+        data.forEach(item => {
+            // Priority Key: Number (trimmed) -> ID
+            const key = item.number && item.number !== "S/N" ? item.number.trim() : item.id;
+
+            if (uniqueMap.has(key)) {
+                if (duplicates.length < 5) duplicates.push(key);
+            }
+
+            // "Keep newest": Since we iterate, the last one overwrites the previous one
+            // Re-normalize status just in case
+            const normalizedItem = {
+                ...item,
+                status: normalizeStatus(item.status, item.closeDate ? new Date(item.closeDate) : null)
+            };
+            uniqueMap.set(key, normalizedItem);
+        });
+
+        const finalData = Array.from(uniqueMap.values());
+
+        // DEV LOGS
+        if (process.env.NODE_ENV === 'development') {
+            console.log("--- DASHBOARD DATA AUDIT ---");
+            console.log(`Total Loaded: ${data.length}`);
+            console.log(`After Dedup: ${finalData.length}`);
+            console.log(`Duplicates Found: ${data.length - finalData.length} (First 5: ${duplicates.join(', ')})`);
+            const open = finalData.filter(d => d.status === RNCStatus.OPEN).length;
+            const closed = finalData.filter(d => d.status === RNCStatus.CLOSED).length;
+            console.log(`Stats -> Abertas: ${open}, Fechadas: ${closed}`);
+            console.log("----------------------------");
+        }
+
+        return finalData;
+    }, [data]);
+
+    // Compute KPIs using cleanData
     const kpis = useMemo(() => {
-        if (!data || data.length === 0) {
+        if (!cleanData || cleanData.length === 0) {
             return { total: 0, closed: 0, efficiency: 0, avgDays: 0 };
         }
 
-        const total = data.length;
-        const closedRecords = data.filter(d => d.status === RNCStatus.CLOSED && typeof d.days === 'number');
-        const closed = data.filter(d => d.status === RNCStatus.CLOSED).length;
+        const total = cleanData.length;
+        const closedRecords = cleanData.filter(d => d.status === RNCStatus.CLOSED && typeof d.days === 'number');
+        const closed = cleanData.filter(d => d.status === RNCStatus.CLOSED).length;
         const efficiency = total > 0 ? Math.round((closed / total) * 100) : 0;
 
         const totalDays = closedRecords.reduce((acc, r) => acc + (r.days || 0), 0);
         const avgDays = closedRecords.length > 0 ? (totalDays / closedRecords.length) : 0;
 
         return { total, closed, efficiency, avgDays };
-    }, [data]);
+    }, [cleanData]);
 
     // Ishikawa Logic
     const { ishikawaData, topOccurrences, donutData } = useMemo(() => {
-        if (!data || data.length === 0) {
+        if (!cleanData || cleanData.length === 0) {
             return { ishikawaData: [], topOccurrences: [], donutData: [] };
         }
 
@@ -37,7 +80,7 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
 
         const occurrences: any[] = [];
 
-        data.forEach(d => {
+        cleanData.forEach(d => {
             const cause = d.cause || '';
             // Simple string matching to categorize
             const matched = ishikawaCategories.find(c => c !== 'Outros' && cause.toLowerCase().includes(c.toLowerCase()));
@@ -75,7 +118,7 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
         top5.forEach(o => o.color = ISHIKAWA_COLORS[o.category] || '#888888');
 
         return { ishikawaData: chartData, topOccurrences: top5, donutData: chartData };
-    }, [data]);
+    }, [cleanData]);
 
     const ISHIKAWA_COLORS: Record<string, string> = {
         'Método': '#22c55e',
@@ -103,18 +146,18 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
 
     // --- Table Data Sort ---
     const sortedTableData = useMemo(() => {
-        return [...data].sort((a, b) => {
+        return [...cleanData].sort((a, b) => {
             const dateA = a.openDate ? new Date(a.openDate).getTime() : 0;
             const dateB = b.openDate ? new Date(b.openDate).getTime() : 0;
             return dateB - dateA; // Descending (Most recent first)
         });
-    }, [data]);
+    }, [cleanData]);
 
     // --- NEW: Priorities Data (Backlog & List) ---
     const { backlogChartData, openRNCList } = useMemo(() => {
-        if (!data) return { backlogChartData: [], openRNCList: [] };
+        if (!cleanData) return { backlogChartData: [], openRNCList: [] };
 
-        const openRNCs = data.filter(d => d.status !== RNCStatus.CLOSED);
+        const openRNCs = cleanData.filter(d => d.status !== RNCStatus.CLOSED);
         const stats: Record<string, { name: string, count: number }> = {};
 
         // 1. Chart Data (Split multiple responsibles)
@@ -154,15 +197,15 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
             .slice(0, 10);
 
         return { backlogChartData: chartData, openRNCList: listData };
-    }, [data]);
+    }, [cleanData]);
 
     // --- Responsible Data (New Chart) ---
     const responsibleData = useMemo(() => {
-        if (!data || data.length === 0) return [];
+        if (!cleanData || cleanData.length === 0) return [];
 
         const stats: Record<string, { name: string, open: number, closed: number, total: number }> = {};
 
-        data.forEach(d => {
+        cleanData.forEach(d => {
             const responsible = d.responsible || 'Sem Responsável';
             if (!stats[responsible]) {
                 stats[responsible] = { name: responsible, open: 0, closed: 0, total: 0 };
@@ -181,7 +224,7 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                 if (b.total !== a.total) return b.total - a.total; // Total Descending
                 return b.open - a.open; // Then Open Descending
             });
-    }, [data]);
+    }, [cleanData]);
 
     return (
         <div className="space-y-6 pb-10">

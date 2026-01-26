@@ -60,6 +60,7 @@ const normalizeSupplier = (raw: string, type: string): string => {
   return clean;
 };
 
+// Normalizes Date (Helper)
 function normalizeDate(value: any): Date | null {
   if (!value) return null;
 
@@ -96,6 +97,40 @@ function normalizeDate(value: any): Date | null {
 
   return null;
 }
+
+// STRICT STATUS NORMALIZER
+export const normalizeStatus = (statusRaw: string | null | undefined, closeDate: Date | null): string => {
+  // Rule 1: If valid closing date exists => CLOSED
+  if (closeDate) return RNCStatus.CLOSED;
+
+  // Rule 2: Normalize text
+  const s = String(statusRaw || "").toLowerCase().trim();
+
+  // Rule 3: Check keywords
+  if (s.includes("fech") || s.includes("encer") || s.includes("conc")) {
+    return RNCStatus.CLOSED;
+  }
+
+  // Default: OPEN
+  return RNCStatus.OPEN;
+};
+
+// STRICT STATUS NORMALIZER
+export const normalizeStatus = (statusRaw: string | null | undefined, closeDate: Date | null): string => {
+  // Rule 1: If valid closing date exists => CLOSED
+  if (closeDate) return RNCStatus.CLOSED;
+
+  // Rule 2: Normalize text
+  const s = String(statusRaw || "").toLowerCase().trim();
+
+  // Rule 3: Check keywords
+  if (s.includes("fech") || s.includes("encer") || s.includes("conc")) {
+    return RNCStatus.CLOSED;
+  }
+
+  // Default: OPEN
+  return RNCStatus.OPEN;
+};
 
 // ===============================================
 // 📝 FORM PARSER HELPERS
@@ -249,7 +284,7 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
 
   const openDate = normalizeDate(read(formSheet, "H7", null));
   const closeDate = findClosingDate(formSheet);
-  const status = closeDate !== null ? RNCStatus.CLOSED : RNCStatus.OPEN;
+  const status = normalizeStatus(null, closeDate); // Form usually relies on dates, but we use the helper to be safe
   const d17Val = String(read(formSheet, "D17", "")).trim();
   const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
 
@@ -325,7 +360,7 @@ function parseTableLayout(workbook: XLSX.WorkBook): RNCRecord[] {
     // Date Parsing
     const openDate = normalizeDate(row["Data"] || row["Data Abertura"] || row["Abertura"]);
     const closeDate = normalizeDate(row["Data Fechamento"] || row["Fechamento"] || row["Encerramento"]);
-    const status = closeDate ? RNCStatus.CLOSED : (String(row["Status"] || "").toLowerCase().includes("fech") ? RNCStatus.CLOSED : RNCStatus.OPEN);
+    const status = normalizeStatus(String(row["Status"] || ""), closeDate);
 
     // Fields
     const rawSector = String(row["Setor"] || row["Área"] || "").trim();
