@@ -178,7 +178,7 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   const status = closeDate !== null ? RNCStatus.CLOSED : RNCStatus.OPEN;
   const d17Val = String(read(formSheet, "D17", "")).trim();
   const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
-  const responsible = String(read(formSheet, "G8", "")).trim() || "Não atribuído";
+  const responsible = String(read(formSheet, "H9", "")).trim() || "Não atribuído";
 
   // 3. Normalization Logic
   let normalizedType = "Interna";
