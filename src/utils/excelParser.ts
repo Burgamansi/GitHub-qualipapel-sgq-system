@@ -122,6 +122,17 @@ export const normalizeStatus = (statusRaw: string | null | undefined, closeDate:
 // 📝 FORM PARSER HELPERS
 // ===============================================
 
+
+// Helper for stable IDs
+const normalizeRncId = (rawNumber: string): string => {
+  const digits = rawNumber.replace(/\D/g, '');
+  return `RNC-${digits}`;
+};
+
+// ===============================================
+// 📝 FORM PARSER HELPERS
+// ===============================================
+
 // Encontra automaticamente a aba certa usando heurística de nomes ou última aba
 function getFormulario(workbook: XLSX.WorkBook): XLSX.WorkSheet | null {
   const keywords = ["formulário", "formulario", "form", "rnc", "qualipapel"];
@@ -298,7 +309,7 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   }
 
   const record: RNCRecord = {
-    id: rncNumber,
+    id: normalizeRncId(rncNumber), // Stable ID
     number: rncNumber,
     description: description,
     sector: normalizedSector,
@@ -370,7 +381,7 @@ function parseTableLayout(workbook: XLSX.WorkBook): RNCRecord[] {
     }
 
     records.push({
-      id: rncNumber,
+      id: normalizeRncId(rncNumber), // Stable ID
       number: rncNumber,
       description: description,
       sector: normalizedSector,
