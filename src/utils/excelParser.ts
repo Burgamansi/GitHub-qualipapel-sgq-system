@@ -99,21 +99,7 @@ function normalizeDate(value: any): Date | null {
 }
 
 // STRICT STATUS NORMALIZER
-export const normalizeStatus = (statusRaw: string | null | undefined, closeDate: Date | null): string => {
-  // Rule 1: If valid closing date exists => CLOSED
-  if (closeDate) return RNCStatus.CLOSED;
 
-  // Rule 2: Normalize text
-  const s = String(statusRaw || "").toLowerCase().trim();
-
-  // Rule 3: Check keywords
-  if (s.includes("fech") || s.includes("encer") || s.includes("conc")) {
-    return RNCStatus.CLOSED;
-  }
-
-  // Default: OPEN
-  return RNCStatus.OPEN;
-};
 
 // STRICT STATUS NORMALIZER
 export const normalizeStatus = (statusRaw: string | null | undefined, closeDate: Date | null): string => {
