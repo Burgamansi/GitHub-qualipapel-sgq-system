@@ -20,6 +20,7 @@ function App() {
   const [showEndSession, setShowEndSession] = useState(false);
 
   // --- Filter State ---
+  const [selectedYear, setSelectedYear] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
   const [selectedSector, setSelectedSector] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('');
@@ -93,6 +94,7 @@ function App() {
 
   // --- Dynamic Filter Options ---
   const filterOptions = useMemo(() => {
+    const years = new Set<string>();
     const months = new Set<string>();
     const sectors = new Set<string>();
     const types = new Set<string>();
@@ -102,6 +104,7 @@ function App() {
 
     rncData.forEach(item => {
       if (item.openDate) {
+        years.add(item.openDate.getFullYear().toString());
         months.add(monthNames[item.openDate.getMonth()]);
       }
       if (item.sector) sectors.add(item.sector);
@@ -109,7 +112,14 @@ function App() {
       if (item.responsible) responsibles.add(item.responsible);
     });
 
+    const yearlyOptions = Array.from(years).sort((a, b) => b.localeCompare(a)); // Descending
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[FILTER] Computed Years:", yearlyOptions);
+    }
+
     return {
+      years: yearlyOptions,
       months: Array.from(months),
       sectors: Array.from(sectors).sort(),
       types: Array.from(types).sort(),
@@ -122,16 +132,19 @@ function App() {
     return rncData.filter(item => {
       const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+      // Year Filter (Priority)
+      const matchYear = selectedYear ? (item.openDate && item.openDate.getFullYear().toString() === selectedYear) : true;
       const matchMonth = selectedMonth ? (item.openDate && monthNames[item.openDate.getMonth()] === selectedMonth) : true;
       const matchSector = selectedSector ? item.sector === selectedSector : true;
       const matchType = selectedType ? item.type === selectedType : true;
       const matchResponsible = selectedResponsible ? item.responsible === selectedResponsible : true;
 
-      return matchMonth && matchSector && matchType && matchResponsible;
+      return matchYear && matchMonth && matchSector && matchType && matchResponsible;
     });
-  }, [rncData, selectedMonth, selectedSector, selectedType, selectedResponsible]);
+  }, [rncData, selectedYear, selectedMonth, selectedSector, selectedType, selectedResponsible]);
 
   const clearFilters = () => {
+    setSelectedYear('');
     setSelectedMonth('');
     setSelectedSector('');
     setSelectedType('');
@@ -249,6 +262,19 @@ function App() {
           {/* Dynamic Universal Filters Bar */}
           <div className="mb-8 rounded-lg border border-white/10 bg-[#19241c]/50 p-4 backdrop-blur-md">
             <div className="flex flex-wrap items-center gap-4">
+
+              {/* Year Filter */}
+              <div className="relative">
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(e.target.value)}
+                  className="appearance-none rounded-lg border border-white/10 bg-[#28392f] py-2 pl-4 pr-10 text-sm font-medium text-white focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer hover:bg-[#2f4236] transition-colors"
+                >
+                  <option value="">Ano (todos)</option>
+                  {filterOptions.years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <span className="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-lg">expand_more</span>
+              </div>
 
               {/* Month Filter */}
               <div className="relative">
