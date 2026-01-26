@@ -179,8 +179,8 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   const d17Val = String(read(formSheet, "D17", "")).trim();
   const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
 
-  // FIX FOR RESPONSIBLE (H9 with Merge Support)
-  // Logic: H9 -> G9 -> H8 -> G8
+  // FIX FOR RESPONSIBLE (H9 with Merge Support + Label Search Fallback)
+  // Logic: H9 -> G9 -> H8 -> G8 -> Search for "Responsável" label
   const getMergedValue = (cellAddress: string): string => {
     const cell = formSheet[cellAddress];
     if (cell && cell.v) return String(cell.v).trim();
@@ -201,18 +201,58 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
     return "";
   };
 
+  // Robust Strategy: Find "Responsável" label and grab neighbor
+  const findValueByLabel = (label: string): string => {
+    const range = XLSX.utils.decode_range(formSheet['!ref'] || "A1:Z100");
+    // Limit search to first 20 rows and 15 cols to save performance
+    const maxRow = Math.min(range.e.r, 20);
+    const maxCol = Math.min(range.e.c, 15);
+
+    for (let R = range.s.r; R <= maxRow; ++R) {
+      for (let C = range.s.c; C <= maxCol; ++C) {
+        const addr = XLSX.utils.encode_cell({ c: C, r: R });
+        const cell = formSheet[addr];
+        if (cell && cell.v && String(cell.v).toLowerCase().includes(label.toLowerCase())) {
+          // Found Label! Try Right (C+1) or Below (R+1)
+
+          // Try Right neighbor first (Most common: "Responsável: [Name]")
+          const rightAddr = XLSX.utils.encode_cell({ c: C + 1, r: R });
+          const rightVal = getMergedValue(rightAddr);
+          if (rightVal && rightVal !== "") return rightVal;
+
+          // Try Below neighbor (Common in stacked forms)
+          const belowAddr = XLSX.utils.encode_cell({ c: C, r: R + 1 });
+          const belowVal = getMergedValue(belowAddr);
+          if (belowVal && belowVal !== "") return belowVal;
+
+          // Try Right+1 (Gap case)
+          const right2Addr = XLSX.utils.encode_cell({ c: C + 2, r: R });
+          const right2Val = getMergedValue(right2Addr);
+          if (right2Val && right2Val !== "") return right2Val;
+        }
+      }
+    }
+    return "";
+  };
+
+  // 1. Try strict H9 (User requested)
   let responsible = getMergedValue("H9");
-  if (!responsible) responsible = getMergedValue("G9");
+
+  // 2. Try nearby cells (H8, G8, G9)
   if (!responsible) responsible = getMergedValue("H8");
-  if (!responsible) responsible = getMergedValue("G8");
+  if (!responsible) responsible = getMergedValue("G9");
+
+  // 3. Try Smart Search by Label
+  if (!responsible) responsible = findValueByLabel("Responsável");
+  if (!responsible) responsible = findValueByLabel("Responsavel"); // No accent
 
   // Final cleanup
   responsible = responsible.replace(/\s+/g, " ").trim();
   if (!responsible) responsible = "Não atribuído";
 
-  // Debug Log (Development Only)
+  // Debug Log
   if (process.env.NODE_ENV === 'development') {
-    console.log(`FORM IMPORT -> RNC: ${rncNumber}, Responsible: "${responsible}"`);
+    console.log(`FORM PARSER -> RNC: ${rncNumber}, Responsible: "${responsible}" (Parsed)`);
   }
 
   // 3. Normalization Logic
