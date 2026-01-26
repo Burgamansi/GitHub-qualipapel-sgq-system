@@ -110,6 +110,42 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
         });
     }, [data]);
 
+    // --- NEW: Priorities Data (Backlog & List) ---
+    const { backlogChartData, openRNCList } = useMemo(() => {
+        if (!data) return { backlogChartData: [], openRNCList: [] };
+
+        const openRNCs = data.filter(d => d.status !== RNCStatus.CLOSED);
+        const stats: Record<string, { name: string, count: number }> = {};
+
+        // 1. Chart Data (Split multiple responsibles)
+        openRNCs.forEach(d => {
+            const rawRes = d.responsible || "Não atribuído";
+            // Create array of cleaned names
+            const names = rawRes.split(/[\/,;-]+/).map(s => s.trim()).filter(s => s !== "");
+
+            names.forEach(name => {
+                if (!stats[name]) {
+                    stats[name] = { name: name, count: 0 };
+                }
+                stats[name].count++;
+            });
+        });
+
+        const chartData = Object.values(stats)
+            .sort((a, b) => b.count - a.count);
+
+        // 2. List Data (Top 10 Open - Priority by Days Open Descending)
+        const listData = [...openRNCs].map(d => {
+            const diff = d.openDate ? (new Date().getTime() - new Date(d.openDate).getTime()) : 0;
+            const daysOpen = Math.ceil(diff / (1000 * 60 * 60 * 24));
+            return { ...d, daysOpen };
+        })
+            .sort((a, b) => b.daysOpen - a.daysOpen) // Oldest first (Highest priority)
+            .slice(0, 10);
+
+        return { backlogChartData: chartData, openRNCList: listData };
+    }, [data]);
+
     // --- Responsible Data (New Chart) ---
     const responsibleData = useMemo(() => {
         if (!data || data.length === 0) return [];
@@ -164,40 +200,81 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                 </div>
             </div>
 
-            {/* Main Bar Chart - Ishikawa */}
-            <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-[#19241c] p-6 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.3)]">
-                <p className="text-white text-base font-medium leading-normal">Tipos de Desvio por Processo — Ishikawa 🧭</p>
-                <div className="h-64 w-full">
-                    {ishikawaData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={ishikawaData} barSize={40}>
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                    contentStyle={{ backgroundColor: '#0c0f0d', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
-                                />
-                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                    {ishikawaData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={ISHIKAWA_COLORS[entry.name] || '#888'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    ) : (
-                        <div className="flex h-full items-center justify-center text-gray-500">
-                            Sem dados para exibir
-                        </div>
-                    )}
-                </div>
-                <div className="flex flex-wrap gap-4 text-xs text-gray-400 mt-2">
-                    {Object.keys(ISHIKAWA_COLORS).map(cat => (
-                        <div key={cat} className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: ISHIKAWA_COLORS[cat] }}></span>
-                            {cat}
-                        </div>
-                    ))}
-                </div>
-            </div>
+            {/* NOVO: RNCs e Responsáveis — Prioridades */}
+            <div className="flex flex-col rounded-xl border border-white/10 bg-[#19241c] p-6 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.3)]">
+                <p className="text-white text-base font-medium leading-normal mb-4">RNCs e Responsáveis — Prioridades 🎯</p>
 
+                {backlogChartData.length > 0 || openRNCList.length > 0 ? (
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* ESQUERDA: Gráfico (60%) */}
+                        <div className="w-full lg:w-[60%] flex flex-col gap-2">
+                            <p className="text-sm text-gray-400 font-medium">Backlog por Responsável (Abertas)</p>
+                            <div className="h-[300px] w-full">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart
+                                        layout="vertical"
+                                        data={backlogChartData}
+                                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                                        barSize={24}
+                                    >
+                                        <XAxis type="number" hide />
+                                        <YAxis
+                                            dataKey="name"
+                                            type="category"
+                                            width={120}
+                                            tick={{ fill: '#d1d5db', fontSize: 13 }}
+                                            interval={0}
+                                        />
+                                        <Tooltip
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            contentStyle={{ backgroundColor: '#0c0f0d', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
+                                            itemStyle={{ color: '#EF4444' }}
+                                        />
+                                        <Bar dataKey="count" name="RNCs Abertas" fill="#EF4444" radius={[0, 4, 4, 0]}>
+                                            {/* Add label on right of bar */}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* DIREITA: Lista (40%) */}
+                        <div className="w-full lg:w-[40%] flex flex-col gap-2">
+                            <p className="text-sm text-gray-400 font-medium">RNCs em aberto (Top 10)</p>
+                            <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {openRNCList.map((item, idx) => {
+                                    const isOverdue = item.daysOpen > 30;
+                                    return (
+                                        <div key={idx} className="flex flex-col gap-1 p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-white font-bold text-sm">RNC-{item.number}</span>
+                                                {isOverdue && (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20">
+                                                        Atrasado
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-300">
+                                                <span className="material-symbols-outlined text-[14px]">person</span>
+                                                <span className="truncate max-w-[150px]">{item.responsible}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                                                <span>{item.sector} • {item.type}</span>
+                                                <span className={isOverdue ? "text-red-400" : "text-gray-400"}>{item.daysOpen} dias</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-48 text-gray-500 gap-2">
+                        <span className="material-symbols-outlined text-4xl opacity-50">check_circle</span>
+                        <p>Sem pendências no período</p>
+                    </div>
+                )}
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="flex flex-col gap-3 rounded-xl bg-[#19241c] p-6 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.3)] border border-white/10">
                     <h3 className="text-white text-base font-medium">Registros Recentes</h3>

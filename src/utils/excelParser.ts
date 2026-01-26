@@ -2,17 +2,17 @@ import * as XLSX from 'xlsx';
 import { RNCRecord, RNCStatus } from '../types';
 
 const APPROVED_SECTORS = [
- "Impressão",
- "Corte e Solda",
- "Picote",
- "Logística",
- "Extrusão",
- "Recuperadora",
- "Almoxarifado",
- "Compras",
- "Controle de Qualidade",
- "Clicheria",
- "Sacoleiras"
+  "Impressão",
+  "Corte e Solda",
+  "Picote",
+  "Logística",
+  "Extrusão",
+  "Recuperadora",
+  "Almoxarifado",
+  "Compras",
+  "Controle de Qualidade",
+  "Clicheria",
+  "Sacoleiras"
 ];
 
 const normalizeSector = (raw: string): string => {
@@ -24,7 +24,7 @@ const normalizeSector = (raw: string): string => {
 
   for (const sector of APPROVED_SECTORS) {
     const cleanSector = normalizeStr(sector);
-    
+
     // Check for inclusion (e.g., "Setor Extrusão" -> "Extrusão")
     if (cleanRaw.includes(cleanSector) || cleanSector.includes(cleanRaw)) {
       return sector;
@@ -68,32 +68,32 @@ function normalizeDate(value: any): Date | null {
 
   // Se for número (serial date do Excel)
   if (typeof value === 'number') {
-     return new Date(Math.round((value - 25569) * 86400 * 1000));
+    return new Date(Math.round((value - 25569) * 86400 * 1000));
   }
 
   // Tenta converter texto
   if (typeof value === "string") {
     // Normaliza separadores para barra (-, . -> /)
     const cleanValue = value.trim().replace(/[-.]/g, "/");
-    
+
     // Tenta formato DD/MM/YYYY
     const parts = cleanValue.split("/");
     if (parts.length === 3) {
       const d = parseInt(parts[0], 10);
       const m = parseInt(parts[1], 10);
       const y = parseInt(parts[2], 10);
-      
+
       // Validação básica de dia/mês/ano
       if (!isNaN(d) && !isNaN(m) && !isNaN(y) && d > 0 && d <= 31 && m > 0 && m <= 12) {
-         return new Date(y, m - 1, d);
+        return new Date(y, m - 1, d);
       }
     }
-    
+
     // Fallback genérico para datas ISO ou outros formatos
     const d = new Date(cleanValue);
     return isNaN(d.getTime()) ? null : d;
   }
-  
+
   return null;
 }
 
@@ -104,7 +104,7 @@ function normalizeDate(value: any): Date | null {
 // Encontra automaticamente a aba certa usando heurística de nomes ou última aba
 function getFormulario(workbook: XLSX.WorkBook): XLSX.WorkSheet | null {
   const keywords = ["formulário", "formulario", "form", "rnc", "qualipapel"];
-  
+
   // Try to find exact match or contains
   const sheetName = workbook.SheetNames.find(name =>
     keywords.some(k => name.toLowerCase().includes(k))
@@ -113,7 +113,7 @@ function getFormulario(workbook: XLSX.WorkBook): XLSX.WorkSheet | null {
   if (sheetName) {
     return workbook.Sheets[sheetName];
   }
-  
+
   // Fallback: usar a última aba do arquivo (Comportamento original do Form Parser)
   const lastSheetName = workbook.SheetNames[workbook.SheetNames.length - 1];
   return workbook.Sheets[lastSheetName];
@@ -133,12 +133,12 @@ function findClosingDate(sheet: XLSX.WorkSheet): Date | null {
   // 0. CORREÇÃO DEFINITIVA (B78/B77) - Prioridade Máxima
   const bCandidates = ["B78", "B77"];
   for (const cell of bCandidates) {
-      const rawVal = read(sheet, cell, null);
-      if (rawVal && typeof rawVal === "string" && rawVal.toLowerCase().includes("data")) {
-          const extracted = rawVal.replace(/Data:?/i, "").trim();
-          const parsed = Date.parse(extracted);
-          if (!isNaN(parsed)) return new Date(parsed);
-      }
+    const rawVal = read(sheet, cell, null);
+    if (rawVal && typeof rawVal === "string" && rawVal.toLowerCase().includes("data")) {
+      const extracted = rawVal.replace(/Data:?/i, "").trim();
+      const parsed = Date.parse(extracted);
+      if (!isNaN(parsed)) return new Date(parsed);
+    }
   }
 
   // 1. CORREÇÃO DATA DE FECHAMENTO QUALIPAPEL – PRIORIDADE CELULA I78
@@ -159,69 +159,74 @@ function findClosingDate(sheet: XLSX.WorkSheet): Date | null {
 }
 
 function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
-    const formSheet = getFormulario(workbook);
-    if (!formSheet) return [];
+  const formSheet = getFormulario(workbook);
+  if (!formSheet) return [];
 
-    const ishikawaSheet = workbook.Sheets["CAUSA&EFEITO"];
+  const ishikawaSheet = workbook.Sheets["CAUSA&EFEITO"];
 
-    // 2. Extract Fields (Strict Mapping)
-    const rawType = String(read(formSheet, "J5", "Não informado")).trim();
-    const rawSector = String(read(formSheet, "H8", "")).trim();
-    const rawSupplier = String(read(formSheet, "D9", "")).trim();
-    const rncNumber = String(read(formSheet, "H5", "")).trim() || "S/N";
-    const openDate = normalizeDate(read(formSheet, "H7", null));
-    const closeDate = findClosingDate(formSheet);
-    const status = closeDate !== null ? RNCStatus.CLOSED : RNCStatus.OPEN;
-    const d17Val = String(read(formSheet, "D17", "")).trim();
-    const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
+  // 2. Extract Fields (Strict Mapping)
+  const rawType = String(read(formSheet, "J5", "Não informado")).trim();
+  const rawSector = String(read(formSheet, "H8", "")).trim();
+  const rawSupplier = String(read(formSheet, "D9", "")).trim();
 
-    // 3. Normalization Logic
-    let normalizedType = "Interna";
-    const lowerType = rawType.toLowerCase();
-    if (lowerType.includes("reclamação")) normalizedType = "Cliente - Reclamação";
-    else if (lowerType.includes("devolução")) normalizedType = "Cliente - Devolução";
-    else if (lowerType.includes("fornecedor")) normalizedType = "Fornecedor";
-    else if (lowerType.includes("interna") || lowerType.includes("não conformidade")) normalizedType = "Interna";
+  // UPDATED: RNC Number from G4 (was H5)
+  // UPDATED: Responsible from G8 (was I10)
+  const rncNumber = String(read(formSheet, "G4", "")).trim() || "S/N";
 
-    const normalizedSector = normalizeSector(rawSector);
-    const normalizedSupplier = normalizeSupplier(rawSupplier, normalizedType);
+  const openDate = normalizeDate(read(formSheet, "H7", null));
+  const closeDate = findClosingDate(formSheet);
+  const status = closeDate !== null ? RNCStatus.CLOSED : RNCStatus.OPEN;
+  const d17Val = String(read(formSheet, "D17", "")).trim();
+  const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
+  const responsible = String(read(formSheet, "G8", "")).trim() || "Não atribuído";
 
-    let cause = String(read(formSheet, "C26", "")).trim();
-    if ((!cause || cause === "") && ishikawaSheet) {
-         cause = String(read(ishikawaSheet, "B25", "")).trim();
-    }
-    if (!cause) cause = "Não especificado";
+  // 3. Normalization Logic
+  let normalizedType = "Interna";
+  const lowerType = rawType.toLowerCase();
+  if (lowerType.includes("reclamação")) normalizedType = "Cliente - Reclamação";
+  else if (lowerType.includes("devolução")) normalizedType = "Cliente - Devolução";
+  else if (lowerType.includes("fornecedor")) normalizedType = "Fornecedor";
+  else if (lowerType.includes("interna") || lowerType.includes("não conformidade")) normalizedType = "Interna";
 
-    let days: number | null = null;
-    if (status === RNCStatus.CLOSED && openDate && closeDate) {
-        const diff = closeDate.getTime() - openDate.getTime();
-        days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    }
+  const normalizedSector = normalizeSector(rawSector);
+  const normalizedSupplier = normalizeSupplier(rawSupplier, normalizedType);
 
-    const record: RNCRecord = {
-      id: rncNumber, 
-      number: rncNumber,
-      description: description,
-      sector: normalizedSector, 
-      type: normalizedType, 
-      status: status,
-      openDate: openDate,
-      closeDate: closeDate,
-      responsible: String(read(formSheet, "I10", "")).trim() || "Não atribuído",
-      cause: cause,
-      action: d17Val, 
-      supplier: normalizedSupplier,
-      deadline: null, 
-      product: String(read(formSheet, "C11", "")).trim(),
-      batch: String(read(formSheet, "C13", "")).trim(),
-      days: days
-    };
+  let cause = String(read(formSheet, "C26", "")).trim();
+  if ((!cause || cause === "") && ishikawaSheet) {
+    cause = String(read(ishikawaSheet, "B25", "")).trim();
+  }
+  if (!cause) cause = "Não especificado";
 
-    if (rncNumber === "S/N" && description === "Sem descrição" && !openDate) {
-         return [];
-    }
+  let days: number | null = null;
+  if (status === RNCStatus.CLOSED && openDate && closeDate) {
+    const diff = closeDate.getTime() - openDate.getTime();
+    days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
 
-    return [record];
+  const record: RNCRecord = {
+    id: rncNumber,
+    number: rncNumber,
+    description: description,
+    sector: normalizedSector,
+    type: normalizedType,
+    status: status,
+    openDate: openDate,
+    closeDate: closeDate,
+    responsible: responsible,
+    cause: cause,
+    action: d17Val,
+    supplier: normalizedSupplier,
+    deadline: null,
+    product: String(read(formSheet, "C11", "")).trim(),
+    batch: String(read(formSheet, "C13", "")).trim(),
+    days: days
+  };
+
+  if (rncNumber === "S/N" && description === "Sem descrição" && !openDate) {
+    return [];
+  }
+
+  return [record];
 }
 
 // ===============================================
@@ -229,68 +234,68 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
 // ===============================================
 
 function parseTableLayout(workbook: XLSX.WorkBook): RNCRecord[] {
-    // Usually the first sheet contains the data table
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) return [];
+  // Usually the first sheet contains the data table
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) return [];
 
-    const jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-    const records: RNCRecord[] = [];
+  const jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  const records: RNCRecord[] = [];
 
-    for (const row of jsonData) {
-        // Basic Validation: Must have at least a Number or Description
-        const rncNumber = String(row["Número"] || row["Numero"] || row["RNC"] || "S/N").trim();
-        const description = String(row["Descrição"] || row["Descricao"] || row["Defeito"] || "").trim();
+  for (const row of jsonData) {
+    // Basic Validation: Must have at least a Number or Description
+    const rncNumber = String(row["Número"] || row["Numero"] || row["RNC"] || "S/N").trim();
+    const description = String(row["Descrição"] || row["Descricao"] || row["Defeito"] || "").trim();
 
-        if (rncNumber === "S/N" && description === "") continue;
+    if (rncNumber === "S/N" && description === "") continue;
 
-        // Date Parsing
-        const openDate = normalizeDate(row["Data"] || row["Data Abertura"] || row["Abertura"]);
-        const closeDate = normalizeDate(row["Data Fechamento"] || row["Fechamento"] || row["Encerramento"]);
-        const status = closeDate ? RNCStatus.CLOSED : (String(row["Status"] || "").toLowerCase().includes("fech") ? RNCStatus.CLOSED : RNCStatus.OPEN);
+    // Date Parsing
+    const openDate = normalizeDate(row["Data"] || row["Data Abertura"] || row["Abertura"]);
+    const closeDate = normalizeDate(row["Data Fechamento"] || row["Fechamento"] || row["Encerramento"]);
+    const status = closeDate ? RNCStatus.CLOSED : (String(row["Status"] || "").toLowerCase().includes("fech") ? RNCStatus.CLOSED : RNCStatus.OPEN);
 
-        // Fields
-        const rawSector = String(row["Setor"] || row["Área"] || "").trim();
-        const rawType = String(row["Tipo"] || row["Classificação"] || "").trim();
-        const rawSupplier = String(row["Fornecedor"] || "").trim();
-        
-        let normalizedType = "Interna";
-        const lowerType = rawType.toLowerCase();
-        if (lowerType.includes("reclamação")) normalizedType = "Cliente - Reclamação";
-        else if (lowerType.includes("devolução")) normalizedType = "Cliente - Devolução";
-        else if (lowerType.includes("fornecedor")) normalizedType = "Fornecedor";
+    // Fields
+    const rawSector = String(row["Setor"] || row["Área"] || "").trim();
+    const rawType = String(row["Tipo"] || row["Classificação"] || "").trim();
+    const rawSupplier = String(row["Fornecedor"] || "").trim();
 
-        const normalizedSector = normalizeSector(rawSector);
-        const normalizedSupplier = normalizeSupplier(rawSupplier, normalizedType);
-        
-        // Days Calc
-        let days: number | null = null;
-        if (status === RNCStatus.CLOSED && openDate && closeDate) {
-            const diff = closeDate.getTime() - openDate.getTime();
-            days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-        }
+    let normalizedType = "Interna";
+    const lowerType = rawType.toLowerCase();
+    if (lowerType.includes("reclamação")) normalizedType = "Cliente - Reclamação";
+    else if (lowerType.includes("devolução")) normalizedType = "Cliente - Devolução";
+    else if (lowerType.includes("fornecedor")) normalizedType = "Fornecedor";
 
-        records.push({
-            id: rncNumber,
-            number: rncNumber,
-            description: description,
-            sector: normalizedSector,
-            type: normalizedType,
-            status: status,
-            openDate: openDate,
-            closeDate: closeDate,
-            responsible: String(row["Responsável"] || row["Responsavel"] || "Não atribuído").trim(),
-            cause: String(row["Causa"] || row["Causa Raiz"] || "Não especificado").trim(),
-            action: String(row["Ação"] || row["Acao"] || row["Disposição"] || "").trim(),
-            supplier: normalizedSupplier,
-            deadline: normalizeDate(row["Prazo"] || null),
-            product: String(row["Produto"] || "").trim(),
-            batch: String(row["Lote"] || "").trim(),
-            days: days
-        });
+    const normalizedSector = normalizeSector(rawSector);
+    const normalizedSupplier = normalizeSupplier(rawSupplier, normalizedType);
+
+    // Days Calc
+    let days: number | null = null;
+    if (status === RNCStatus.CLOSED && openDate && closeDate) {
+      const diff = closeDate.getTime() - openDate.getTime();
+      days = Math.ceil(diff / (1000 * 60 * 60 * 24));
     }
 
-    return records;
+    records.push({
+      id: rncNumber,
+      number: rncNumber,
+      description: description,
+      sector: normalizedSector,
+      type: normalizedType,
+      status: status,
+      openDate: openDate,
+      closeDate: closeDate,
+      responsible: String(row["Responsável"] || row["Responsavel"] || "Não atribuído").trim(),
+      cause: String(row["Causa"] || row["Causa Raiz"] || "Não especificado").trim(),
+      action: String(row["Ação"] || row["Acao"] || row["Disposição"] || "").trim(),
+      supplier: normalizedSupplier,
+      deadline: normalizeDate(row["Prazo"] || null),
+      product: String(row["Produto"] || "").trim(),
+      batch: String(row["Lote"] || "").trim(),
+      days: days
+    });
+  }
+
+  return records;
 }
 
 // ===============================================
@@ -307,33 +312,33 @@ export const parseExcelFile = async (file: File): Promise<RNCRecord[]> => {
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
         // 🕵️ DETECT FORMAT STRATEGY
-        
+
         // 1. Check for specific Form sheet name
         const keywords = ["formulário", "formulario", "folha de rnc"];
-        const hasFormSheet = workbook.SheetNames.some(name => 
-            keywords.some(k => name.toLowerCase().includes(k))
+        const hasFormSheet = workbook.SheetNames.some(name =>
+          keywords.some(k => name.toLowerCase().includes(k))
         );
 
         if (hasFormSheet) {
-            // High confidence it's a Form
-            resolve(parseFormLayout(workbook));
-            return;
+          // High confidence it's a Form
+          resolve(parseFormLayout(workbook));
+          return;
         }
 
         // 2. Check header of first sheet to see if it looks like a Table
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const firstRowSnippet = XLSX.utils.sheet_to_json(firstSheet, { header: 1, range: 0, defval: "" })[0] as string[];
-        
-        if (firstRowSnippet && Array.isArray(firstRowSnippet)) {
-            const headerStr = firstRowSnippet.join(" ").toLowerCase();
-            const tableKeywords = ["número", "numero", "descrição", "setor", "status", "data"];
-            const matchCount = tableKeywords.filter(k => headerStr.includes(k)).length;
 
-            if (matchCount >= 2) {
-                // It looks like a table!
-                resolve(parseTableLayout(workbook));
-                return;
-            }
+        if (firstRowSnippet && Array.isArray(firstRowSnippet)) {
+          const headerStr = firstRowSnippet.join(" ").toLowerCase();
+          const tableKeywords = ["número", "numero", "descrição", "setor", "status", "data"];
+          const matchCount = tableKeywords.filter(k => headerStr.includes(k)).length;
+
+          if (matchCount >= 2) {
+            // It looks like a table!
+            resolve(parseTableLayout(workbook));
+            return;
+          }
         }
 
         // 3. Fallback: Try Form Layout (Original default behavior)
