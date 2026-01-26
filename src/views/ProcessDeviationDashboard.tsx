@@ -228,12 +228,12 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                         {/* ESQUERDA: Gráfico (60%) */}
                         <div className="w-full lg:w-[60%] flex flex-col gap-2">
                             <p className="text-sm text-gray-400 font-medium">Backlog por Responsável (Abertas)</p>
-                            <div className="h-[300px] w-full">
+                            <div className="h-[300px] w-full min-h-[300px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart
                                         layout="vertical"
                                         data={backlogChartData}
-                                        margin={{ top: 0, right: 50, left: 40, bottom: 0 }}
+                                        margin={{ top: 0, right: 50, left: 10, bottom: 0 }}
                                         barSize={24}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
@@ -241,14 +241,19 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                                         <YAxis
                                             dataKey="name"
                                             type="category"
-                                            width={120}
-                                            tick={{ fill: '#d1d5db', fontSize: 13, fontWeight: 500 }}
+                                            width={180}
+                                            tick={{ fill: '#d1d5db', fontSize: 12, fontWeight: 500 }}
+                                            tickFormatter={(value) => {
+                                                if (typeof value !== 'string') return value;
+                                                return value.length > 18 ? `${value.slice(0, 18)}…` : value;
+                                            }}
                                             interval={0}
                                         />
                                         <Tooltip
                                             cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                             contentStyle={{ backgroundColor: '#0c0f0d', border: '1px solid #333', borderRadius: '8px', color: '#fff' }}
                                             itemStyle={{ color: '#EF4444' }}
+                                            formatter={(value: any) => [value, "RNCs Abertas"]}
                                         />
                                         <Bar dataKey="count" name="RNCs Abertas" fill="#EF4444" radius={[0, 4, 4, 0]}>
                                             <LabelList dataKey="count" position="right" fill="#fff" fontSize={12} fontWeight="bold" />
