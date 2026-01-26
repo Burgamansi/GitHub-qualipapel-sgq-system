@@ -170,7 +170,7 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   const rawSupplier = String(read(formSheet, "D9", "")).trim();
 
   // UPDATED: RNC Number from G4 (was H5)
-  // UPDATED: Responsible from G8 (was I10)
+  // UPDATED: Responsible from G8 (was I10) -> NOW FIXED TO H9 with merged support
   const rncNumber = String(read(formSheet, "G4", "")).trim() || "S/N";
 
   const openDate = normalizeDate(read(formSheet, "H7", null));
@@ -178,7 +178,42 @@ function parseFormLayout(workbook: XLSX.WorkBook): RNCRecord[] {
   const status = closeDate !== null ? RNCStatus.CLOSED : RNCStatus.OPEN;
   const d17Val = String(read(formSheet, "D17", "")).trim();
   const description = String(read(formSheet, "D15", "")).trim() || "Sem descrição";
-  const responsible = String(read(formSheet, "H9", "")).trim() || "Não atribuído";
+
+  // FIX FOR RESPONSIBLE (H9 with Merge Support)
+  // Logic: H9 -> G9 -> H8 -> G8
+  const getMergedValue = (cellAddress: string): string => {
+    const cell = formSheet[cellAddress];
+    if (cell && cell.v) return String(cell.v).trim();
+
+    // Check merges
+    if (formSheet['!merges']) {
+      const decode = XLSX.utils.decode_cell(cellAddress); // {c, r}
+      for (const range of formSheet['!merges']) {
+        if (decode.c >= range.s.c && decode.c <= range.e.c &&
+          decode.r >= range.s.r && decode.r <= range.e.r) {
+          // Found merge, return top-left value
+          const topLeftRef = XLSX.utils.encode_cell(range.s);
+          const topLeftVal = formSheet[topLeftRef]?.v;
+          return topLeftVal ? String(topLeftVal).trim() : "";
+        }
+      }
+    }
+    return "";
+  };
+
+  let responsible = getMergedValue("H9");
+  if (!responsible) responsible = getMergedValue("G9");
+  if (!responsible) responsible = getMergedValue("H8");
+  if (!responsible) responsible = getMergedValue("G8");
+
+  // Final cleanup
+  responsible = responsible.replace(/\s+/g, " ").trim();
+  if (!responsible) responsible = "Não atribuído";
+
+  // Debug Log (Development Only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`FORM IMPORT -> RNC: ${rncNumber}, Responsible: "${responsible}"`);
+  }
 
   // 3. Normalization Logic
   let normalizedType = "Interna";

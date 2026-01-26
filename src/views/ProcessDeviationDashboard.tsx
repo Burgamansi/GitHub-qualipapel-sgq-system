@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { RNCRecord, RNCStatus } from '../types';
-import { ResponsiveContainer, BarChart, Bar, Tooltip, PieChart, Pie, Cell, XAxis, YAxis, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, Tooltip, PieChart, Pie, Cell, XAxis, YAxis, Legend, CartesianGrid, LabelList } from 'recharts';
 
 interface Props {
     data: RNCRecord[];
@@ -201,8 +201,17 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
             </div>
 
             {/* NOVO: RNCs e Responsáveis — Prioridades */}
-            <div className="flex flex-col rounded-xl border border-white/10 bg-[#19241c] p-6 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.3)]">
-                <p className="text-white text-base font-medium leading-normal mb-4">RNCs e Responsáveis — Prioridades 🎯</p>
+            <div className="flex flex-col rounded-xl border-t-4 border-t-primary bg-[#19241c] p-6 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.3)] shadow-[0_4px_14px_0_rgba(34,197,94,0.1)]">
+                <div className="flex flex-col mb-6">
+                    <p className="text-white text-lg font-bold leading-normal">RNCs e Responsáveis — Prioridades 🎯</p>
+                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span> Abertas: {backlogChartData.reduce((acc, c) => acc + c.count, 0)}</span>
+                        <span className="text-white/20">•</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500"></span> Fechadas: {kpis.closed}</span>
+                        <span className="text-white/20">•</span>
+                        <span>Eficiência Geral: {kpis.efficiency}%</span>
+                    </div>
+                </div>
 
                 {backlogChartData.length > 0 || openRNCList.length > 0 ? (
                     <div className="flex flex-col lg:flex-row gap-8">
@@ -214,15 +223,16 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                                     <BarChart
                                         layout="vertical"
                                         data={backlogChartData}
-                                        margin={{ top: 0, right: 30, left: 40, bottom: 0 }}
+                                        margin={{ top: 0, right: 50, left: 40, bottom: 0 }}
                                         barSize={24}
                                     >
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.05)" />
                                         <XAxis type="number" hide />
                                         <YAxis
                                             dataKey="name"
                                             type="category"
                                             width={120}
-                                            tick={{ fill: '#d1d5db', fontSize: 13 }}
+                                            tick={{ fill: '#d1d5db', fontSize: 13, fontWeight: 500 }}
                                             interval={0}
                                         />
                                         <Tooltip
@@ -231,7 +241,7 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                                             itemStyle={{ color: '#EF4444' }}
                                         />
                                         <Bar dataKey="count" name="RNCs Abertas" fill="#EF4444" radius={[0, 4, 4, 0]}>
-                                            {/* Add label on right of bar */}
+                                            <LabelList dataKey="count" position="right" fill="#fff" fontSize={12} fontWeight="bold" />
                                         </Bar>
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -245,22 +255,28 @@ export const ProcessDeviationDashboard: React.FC<Props> = ({ data }) => {
                                 {openRNCList.map((item, idx) => {
                                     const isOverdue = item.daysOpen > 30;
                                     return (
-                                        <div key={idx} className="flex flex-col gap-1 p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all">
+                                        <div key={idx} className="flex flex-col gap-1 p-3 rounded-lg bg-white/5 border border-white/5 hover:border-white/20 transition-all hover:bg-white/10 group">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-white font-bold text-sm">RNC-{item.number}</span>
-                                                {isOverdue && (
-                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-white font-black text-base tracking-tight group-hover:text-primary transition-colors">RNC-{item.number}</span>
+                                                </div>
+                                                {isOverdue ? (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/20 uppercase tracking-wider">
                                                         Atrasado
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20 uppercase tracking-wider">
+                                                        Em Prazo
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-300">
-                                                <span className="material-symbols-outlined text-[14px]">person</span>
-                                                <span className="truncate max-w-[150px]">{item.responsible}</span>
+                                            <div className="flex items-center gap-2 text-xs text-gray-300 my-0.5">
+                                                <span className="material-symbols-outlined text-[16px] text-primary">person</span>
+                                                <span className="truncate max-w-[150px] font-medium text-white/90">{item.responsible}</span>
                                             </div>
-                                            <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                                            <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1 border-t border-white/5 pt-2">
                                                 <span>{item.sector} • {item.type}</span>
-                                                <span className={isOverdue ? "text-red-400" : "text-gray-400"}>{item.daysOpen} dias</span>
+                                                <span className={`${isOverdue ? "text-red-400 font-bold" : "text-gray-400"}`}>{item.daysOpen} dias</span>
                                             </div>
                                         </div>
                                     );
