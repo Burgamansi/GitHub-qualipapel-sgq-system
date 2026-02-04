@@ -25,14 +25,26 @@ const requiredEnvVars = [
 const missingVars = requiredEnvVars.filter(key => !import.meta.env[key]);
 
 if (missingVars.length > 0) {
-    throw new Error(
-        `Missing required environment variables: ${missingVars.join(', ')}. ` +
-        "Please check your Vercel Project Settings > Environment Variables."
-    );
+    const errorMsg = `
+        <div style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #ff4444;">Configuração Incompleta</h1>
+            <p style="font-size: 1.1rem; line-height: 1.5;">O sistema não pode iniciar porque as seguintes variáveis de ambiente estão faltando no Vercel:</p>
+            <pre style="background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto;">${missingVars.join('\n')}</pre>
+            <p><strong>Como corrigir:</strong></p>
+            <ol>
+                <li>Acesse o painel do seu projeto na Vercel</li>
+                <li>Vá em <strong>Settings</strong> > <strong>Environment Variables</strong></li>
+                <li>Adicione as variáveis acima copiando os valores do seu arquivo <code>.env.local</code> local.</li>
+            </ol>
+        </div>
+    `;
+    document.body.innerHTML = errorMsg;
+    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
 }
 
 // Additional specific check for API Key as it's the most critical for initialization
 if (!firebaseConfig.apiKey) {
+    document.body.innerHTML = "<h1>Erro Crítico</h1><p>Firebase API Key está faltando.</p>";
     throw new Error("Firebase API Key is missing specifically.");
 }
 
