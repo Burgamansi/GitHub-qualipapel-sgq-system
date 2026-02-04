@@ -29,7 +29,7 @@ if (missingVars.length > 0) {
         <div style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 600px; margin: 0 auto;">
             <h1 style="color: #ff4444;">Configuração Incompleta</h1>
             <p style="font-size: 1.1rem; line-height: 1.5;">O sistema não pode iniciar porque as seguintes variáveis de ambiente estão faltando no Vercel:</p>
-            <pre style="background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow-x: auto;">${missingVars.join('\n')}</pre>
+            <pre style="background: #f4f4f4; color: #333; padding: 1rem; border-radius: 4px; overflow-x: auto;">${missingVars.join('\n')}</pre>
             <p><strong>Como corrigir:</strong></p>
             <ol>
                 <li>Acesse o painel do seu projeto na Vercel</li>
