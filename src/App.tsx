@@ -14,7 +14,7 @@ import { usePersistence } from './hooks/usePersistence';
 import { Toaster, toast } from 'react-hot-toast';
 
 function App() {
-  const { data: rncData, setData: setRncData, saveData, saveAllData, clearData } = usePersistence();
+  const { data: rncData, setData: setRncData, saveData, saveAllData, clearData, upsertToCloud, lastSync, isSyncing } = usePersistence();
   const [activeView, setActiveView] = useState('general');
   const [showLanding, setShowLanding] = useState(true);
   const [showEndSession, setShowEndSession] = useState(false);
@@ -70,7 +70,7 @@ function App() {
       // 3. Convert back to array
       const finalData = Array.from(dataMap.values());
 
-      // AUTO-SAVE IMMEDIATELY
+      // AUTO-SAVE Local (Cache only, allowing manual cloud sync later)
       saveData(finalData);
 
       // Toast feedback
@@ -197,7 +197,7 @@ function App() {
 
   const handleManualSave = useCallback(() => {
     saveAllData();
-    toast.success("Arquivos salvos com sucesso!");
+    toast.success("Dados salvos na nuvem ☁️");
   }, [saveAllData]);
 
   const handleSaveAndExit = () => {
@@ -214,7 +214,8 @@ function App() {
   };
 
   const handleClearAndExit = () => {
-    clearData(); // Clears storage and state (via hook's setData([]))
+    clearData(); // Clears storage and cloud
+    toast.success("Dados apagados com sucesso.");
     clearFilters();
     setShowEndSession(false);
     setShowLanding(true);
@@ -262,6 +263,20 @@ function App() {
                   placeholder="Buscar RNC..."
                   className="w-64 rounded-lg border border-white/10 bg-[#19241c] py-2 pl-10 pr-4 text-white placeholder-gray-500 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all shadow-inner"
                 />
+              </div>
+
+              {/* Sync Status Indicator */}
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#19241c] border border-white/5 text-xs text-gray-400">
+                <span className={`material-symbols-outlined text-[16px] ${isSyncing ? 'animate-spin text-primary' : 'text-primary'}`}>
+                  {isSyncing ? 'sync' : 'cloud_done'}
+                </span>
+                {isSyncing ? (
+                  <span>Sincronizando...</span>
+                ) : (
+                  <span>
+                    {lastSync ? `Sincronizado às ${lastSync.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Offline'}
+                  </span>
+                )}
               </div>
             </div>
 
