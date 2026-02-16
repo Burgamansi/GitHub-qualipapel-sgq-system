@@ -8,7 +8,9 @@ import {
     setDoc,
     deleteDoc,
     query,
-    limit
+    limit,
+    onSnapshot,
+    orderBy
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { RNCRecord } from '../types';
@@ -42,15 +44,22 @@ export const rncService = {
     /**
      * Fetch all RNC records from Firestore
      */
-    async fetchAll(): Promise<RNCRecord[]> {
-        try {
-            const colRef = collection(db, COLLECTION_NAME).withConverter(rncConverter);
-            const snapshot = await getDocs(colRef);
-            return snapshot.docs.map(doc => doc.data());
-        } catch (error) {
-            console.error('Error fetching RNCs from Firestore:', error);
-            throw error;
-        }
+    /**
+     * Subscribe to RNC updates in realtime
+     */
+    subscribeRncsRealtime(onData: (data: RNCRecord[]) => void): () => void {
+        const colRef = collection(db, COLLECTION_NAME).withConverter(rncConverter);
+        // Ordering by updatedAt desc to show newest first
+        const q = query(colRef, orderBy('updatedAt', 'desc'));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => doc.data());
+            onData(data);
+        }, (error) => {
+            console.error("Error receiving realtime RNC updates:", error);
+        });
+
+        return unsubscribe;
     },
 
     /**

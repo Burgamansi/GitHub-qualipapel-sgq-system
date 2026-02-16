@@ -9,53 +9,26 @@ export function usePersistence() {
     const [lastSync, setLastSync] = useState<Date | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
-    // Initial Load & Sync
+    // Realtime Subscription
     useEffect(() => {
-        const load = async () => {
-            // 1. Load from LocalStorage (Cache) - Fast Paint
-            const saved = localStorage.getItem(STORAGE_KEY);
-            let localData: RNCRecord[] = [];
+        setIsSyncing(true);
 
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
-                        localData = parsed.map((item: any) => ({
-                            ...item,
-                            openDate: item.openDate ? new Date(item.openDate) : null,
-                            closeDate: item.closeDate ? new Date(item.closeDate) : null,
-                            deadline: item.deadline ? new Date(item.deadline) : null
-                        }));
-                        setData(localData);
-                    }
-                } catch (error) {
-                    console.error("Error loading savedRNCs", error);
-                }
-            }
+        const unsubscribe = rncService.subscribeRncsRealtime((newData) => {
+            setData(newData);
+            setIsSyncing(false);
+            setLastSync(new Date());
 
-            // 2. Load from Firestore (Source of Truth)
+            // Optional: Update cache for offline viewing if needed, but not as primary source
             try {
-                setIsSyncing(true);
-                const cloudData = await rncService.fetchAll();
-
-                if (cloudData.length > 0) {
-                    // Cloud overrides local as per requirements
-                    setData(cloudData);
-                    setLastSync(new Date());
-
-                    // Update cache
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
-                    console.log(`Hydrated ${cloudData.length} records from Firestore.`);
-                }
-            } catch (error) {
-                console.error("Failed to sync with Firestore:", error);
-                // Keep showing localData if cloud fails
-            } finally {
-                setIsSyncing(false);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+            } catch (e) {
+                console.error("Failed to update local cache", e);
             }
-        };
+        });
 
-        load();
+        return () => {
+            unsubscribe();
+        };
     }, []);
 
     const saveData = useCallback((currentData: RNCRecord[]) => {
