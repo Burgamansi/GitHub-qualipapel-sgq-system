@@ -139,6 +139,22 @@ function App() {
     });
   }, [rncData, selectedYear, selectedMonth, selectedSector, selectedType, selectedResponsible]);
 
+  // --- Apply Sorting (Descending by Number) ---
+  const sortedData = useMemo(() => {
+    return [...filteredData].sort((a, b) => {
+      const getNum = (str: string | undefined) => {
+        if (!str) return 0;
+        const nums = String(str).replace(/\D/g, '');
+        return nums ? Number(nums) : 0;
+      };
+
+      const numA = getNum(a.number);
+      const numB = getNum(b.number);
+
+      return numB - numA; // Descending (Higher number first)
+    });
+  }, [filteredData]);
+
   const clearFilters = () => {
     setSelectedYear('');
     setSelectedMonth('');
@@ -148,8 +164,8 @@ function App() {
   };
 
   const renderView = () => {
-    // Pass filteredData instead of rncData to views
-    const dataToUse = filteredData;
+    // Pass sortedData instead of filteredData or rncData
+    const dataToUse = sortedData;
 
     switch (activeView) {
       case 'general': return <StrategicDashboard data={dataToUse} />;
