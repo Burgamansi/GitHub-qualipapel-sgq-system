@@ -27,12 +27,14 @@ export interface RNCRecord {
   product: string;
   batch: string;
   days: number | null;
+  createdAt?: any; // Firestore Timestamp
+  updatedAt?: any; // Firestore Timestamp
 }
 
 export interface KPIMetrics {
   total: number;
   open: number;
   closed: number;
-  efficiency: number; 
+  efficiency: number;
   avgCloseTime: number;
 }
