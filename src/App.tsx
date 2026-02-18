@@ -11,6 +11,7 @@ import { EndSession } from './views/EndSession';
 import { RNCRecord } from './types';
 import { parseExcelFile } from './utils/excelParser';
 import { usePersistence } from './hooks/usePersistence';
+import { rncService } from './services/rncService';
 import { Toaster, toast } from 'react-hot-toast';
 
 function App() {
