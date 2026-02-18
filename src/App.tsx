@@ -147,7 +147,12 @@ function App() {
 
     const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-    return rncData.filter(item => {
+    console.log("[DATA FLOW] rncData length:", rncData.length);
+    if (rncData.length > 0) {
+      console.log("[DATA FLOW] Sample openDate type:", typeof rncData[0].openDate, rncData[0].openDate);
+    }
+
+    const res = rncData.filter(item => {
       // 1. Year Filter
       if (normYear) {
         if (!item.openDate) return false;
@@ -173,6 +178,9 @@ function App() {
 
       return true;
     });
+
+    console.log("[DATA FLOW] filteredData length:", res.length);
+    return res;
   }, [rncData, selectedYear, selectedMonth, selectedSector, selectedType, selectedResponsible]);
 
   // --- Apply Sorting (Descending by Number) ---

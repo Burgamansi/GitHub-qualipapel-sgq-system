@@ -5,7 +5,25 @@ import { rncService } from '../services/rncService';
 const STORAGE_KEY = 'savedRNCs';
 
 export function usePersistence() {
-    const [data, setData] = useState<RNCRecord[]>([]);
+    const [data, setData] = useState<RNCRecord[]>(() => {
+        // Hydrate from local storage on mount
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                return parsed.map((item: any) => ({
+                    ...item,
+                    openDate: item.openDate ? new Date(item.openDate) : null,
+                    closeDate: item.closeDate ? new Date(item.closeDate) : null,
+                    deadline: item.deadline ? new Date(item.deadline) : null,
+                }));
+            } catch (e) {
+                console.error("Failed to parse local cache", e);
+                return [];
+            }
+        }
+        return [];
+    });
     const [lastSync, setLastSync] = useState<Date | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
@@ -14,13 +32,21 @@ export function usePersistence() {
         setIsSyncing(true);
 
         const unsubscribe = rncService.subscribeRncsRealtime((newData) => {
-            setData(newData);
+            // Hydrate Strings to Dates
+            const hydratedData = newData.map(item => ({
+                ...item,
+                openDate: item.openDate ? new Date(item.openDate) : null,
+                closeDate: item.closeDate ? new Date(item.closeDate) : null,
+                deadline: item.deadline ? new Date(item.deadline) : null,
+            }));
+
+            setData(hydratedData);
             setIsSyncing(false);
             setLastSync(new Date());
 
             // Optional: Update cache for offline viewing if needed, but not as primary source
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(hydratedData));
             } catch (e) {
                 console.error("Failed to update local cache", e);
             }
