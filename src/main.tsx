@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
+import { RncProvider } from './contexts/RncContext';
 import './index.css';
 
 const rootElement = document.getElementById('root');
@@ -13,7 +14,9 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <RncProvider>
+        <App />
+      </RncProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

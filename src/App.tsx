@@ -10,12 +10,12 @@ import { LandingPage } from './views/LandingPage';
 import { EndSession } from './views/EndSession';
 import { RNCRecord } from './types';
 import { parseExcelFile } from './utils/excelParser';
-import { usePersistence } from './hooks/usePersistence';
+import { useRnc } from './contexts/RncContext';
 import { rncService } from './services/rncService';
 import { Toaster, toast } from 'react-hot-toast';
 
 function App() {
-  const { data: rncData, setData: setRncData, saveData, saveAllData, clearData, upsertToCloud, lastSync, isSyncing } = usePersistence();
+  const { data: rncData, saveData, saveAllData, clearData, lastSync, isSyncing } = useRnc();
   const [activeView, setActiveView] = useState('general');
   const [showLanding, setShowLanding] = useState(true);
   const [showEndSession, setShowEndSession] = useState(false);
@@ -27,7 +27,7 @@ function App() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedResponsible, setSelectedResponsible] = useState<string>('');
 
-  // Auto-enter dashboard if data exists on mount (handled by usePersistence + effect here)
+  // Auto-enter dashboard if data exists
   useEffect(() => {
     if (rncData.length > 0 && showLanding) {
       setShowLanding(false);
@@ -111,10 +111,6 @@ function App() {
 
     const yearlyOptions = Array.from(years).sort((a, b) => b.localeCompare(a)); // Descending
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[FILTER] Computed Years:", yearlyOptions);
-    }
-
     return {
       years: yearlyOptions,
       months: Array.from(months),
@@ -125,17 +121,12 @@ function App() {
   }, [rncData]);
 
   // --- Apply Filters ---
-  // --- Apply Filters ---
   const filteredData = useMemo(() => {
-    // Helper: Normalize Filter Value
-    // Helper: Normalize Filter Value
+    // Helper: Normalize Filter Value (STRICT)
     const norm = (v?: string | null) => {
       if (!v) return null;
-
-      const s = String(v).toLowerCase();
-
-      if (s.includes("todos")) return null;
-
+      const s = String(v).toLowerCase().trim();
+      if (s === "" || s.includes("todos")) return null;
       return v;
     };
 
@@ -146,11 +137,6 @@ function App() {
     const normResp = norm(selectedResponsible);
 
     const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-
-    console.log("[DATA FLOW] rncData length:", rncData.length);
-    if (rncData.length > 0) {
-      console.log("[DATA FLOW] Sample openDate type:", typeof rncData[0].openDate, rncData[0].openDate);
-    }
 
     const res = rncData.filter(item => {
       // 1. Year Filter
@@ -179,7 +165,6 @@ function App() {
       return true;
     });
 
-    console.log("[DATA FLOW] filteredData length:", res.length);
     return res;
   }, [rncData, selectedYear, selectedMonth, selectedSector, selectedType, selectedResponsible]);
 
