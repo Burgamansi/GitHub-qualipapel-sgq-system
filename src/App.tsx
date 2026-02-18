@@ -128,13 +128,14 @@ function App() {
   // --- Apply Filters ---
   const filteredData = useMemo(() => {
     // Helper: Normalize Filter Value
+    // Helper: Normalize Filter Value
     const norm = (v?: string | null) => {
-      if (!val) return null; // Note: 'val' is not defined in user snippet, param is 'v'. Fixing param name.
-      // User snippet: const norm = (v?: string | null) => { if (!v) return null; ... }
-      // I will correct the param name to match usage.
       if (!v) return null;
-      const s = String(v).trim().toLowerCase();
-      if (s === '' || s === 'todos' || s.includes('(todos)')) return null;
+
+      const s = String(v).toLowerCase();
+
+      if (s.includes("todos")) return null;
+
       return v;
     };
 
