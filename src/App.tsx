@@ -125,39 +125,52 @@ function App() {
   }, [rncData]);
 
   // --- Apply Filters ---
+  // --- Apply Filters ---
   const filteredData = useMemo(() => {
-    // Normalizer to handle "todos", empty string, or null
-    const normalizeFilter = (val: string) => {
-      if (!val) return null;
-      const v = val.trim().toLowerCase();
-      if (v === '' || v === 'todos' || v.includes('(todos)')) return null;
-      return val; // Return original casing/value for comparison if needed, or normalized?
-      // The state setters set the EXACT value from the <option>. 
-      // options have value="" for "todos". 
-      // So just !val check is mostly sufficient, but we add the specific checks requested.
+    // Helper: Normalize Filter Value
+    const norm = (v?: string | null) => {
+      if (!val) return null; // Note: 'val' is not defined in user snippet, param is 'v'. Fixing param name.
+      // User snippet: const norm = (v?: string | null) => { if (!v) return null; ... }
+      // I will correct the param name to match usage.
+      if (!v) return null;
+      const s = String(v).trim().toLowerCase();
+      if (s === '' || s === 'todos' || s.includes('(todos)')) return null;
+      return v;
     };
 
-    const normYear = normalizeFilter(selectedYear);
-    const normMonth = normalizeFilter(selectedMonth);
-    const normSector = normalizeFilter(selectedSector);
-    const normType = normalizeFilter(selectedType);
-    const normResp = normalizeFilter(selectedResponsible);
+    const normYear = norm(selectedYear);
+    const normMonth = norm(selectedMonth);
+    const normSector = norm(selectedSector);
+    const normType = norm(selectedType);
+    const normResp = norm(selectedResponsible);
+
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     return rncData.filter(item => {
-      const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+      // 1. Year Filter
+      if (normYear) {
+        if (!item.openDate) return false;
+        const itemYear = item.openDate.getFullYear().toString();
+        if (itemYear !== normYear) return false;
+      }
 
-      // Year Filter
-      const matchYear = normYear ? (item.openDate && item.openDate.getFullYear().toString() === normYear) : true;
-      // Month Filter
-      const matchMonth = normMonth ? (item.openDate && monthNames[item.openDate.getMonth()] === normMonth) : true;
-      // Sector Filter
-      const matchSector = normSector ? item.sector === normSector : true;
-      // Type Filter
-      const matchType = normType ? item.type === normType : true;
-      // Responsible Filter
-      const matchResponsible = normResp ? item.responsible === normResp : true;
+      // 2. Month Filter
+      if (normMonth) {
+        if (!item.openDate) return false;
+        const itemMonth = monthNames[item.openDate.getMonth()];
+        if (itemMonth !== normMonth) return false;
+      }
 
-      return matchYear && matchMonth && matchSector && matchType && matchResponsible;
+      // 3. Sector Filter
+      if (normSector && item.sector !== normSector) return false;
+
+      // 4. Type Filter
+      if (normType && item.type !== normType) return false;
+
+      // 5. Responsible Filter
+      if (normResp && item.responsible !== normResp) return false;
+
+      return true;
     });
   }, [rncData, selectedYear, selectedMonth, selectedSector, selectedType, selectedResponsible]);
 
