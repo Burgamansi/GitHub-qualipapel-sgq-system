@@ -51,7 +51,9 @@ export const rncService = {
     subscribeRncsRealtime(onData: (data: RNCRecord[]) => void): () => void {
         const colRef = collection(db, COLLECTION_NAME).withConverter(rncConverter);
         // Ordering by updatedAt desc to show newest first
-        const q = query(colRef, orderBy('updatedAt', 'desc'));
+        // REMOVED orderBy('updatedAt') temporarily because Firestore excludes docs missing the field.
+        // We want to see ALL data for debugging.
+        const q = query(colRef);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             console.log("[FIRESTORE] snapshot.size =", snapshot.size);
