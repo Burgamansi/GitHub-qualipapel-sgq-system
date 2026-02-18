@@ -54,6 +54,10 @@ export const rncService = {
         const q = query(colRef, orderBy('updatedAt', 'desc'));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
+            console.log("[FIRESTORE] snapshot.size =", snapshot.size);
+            if (snapshot.size > 0) {
+                console.log("[FIRESTORE] first docs =", snapshot.docs.slice(0, 3).map(d => d.id));
+            }
             const data = snapshot.docs.map(doc => doc.data());
             onData(data);
         }, (error) => {

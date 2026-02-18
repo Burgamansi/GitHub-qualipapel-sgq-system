@@ -126,15 +126,36 @@ function App() {
 
   // --- Apply Filters ---
   const filteredData = useMemo(() => {
+    // Normalizer to handle "todos", empty string, or null
+    const normalizeFilter = (val: string) => {
+      if (!val) return null;
+      const v = val.trim().toLowerCase();
+      if (v === '' || v === 'todos' || v.includes('(todos)')) return null;
+      return val; // Return original casing/value for comparison if needed, or normalized?
+      // The state setters set the EXACT value from the <option>. 
+      // options have value="" for "todos". 
+      // So just !val check is mostly sufficient, but we add the specific checks requested.
+    };
+
+    const normYear = normalizeFilter(selectedYear);
+    const normMonth = normalizeFilter(selectedMonth);
+    const normSector = normalizeFilter(selectedSector);
+    const normType = normalizeFilter(selectedType);
+    const normResp = normalizeFilter(selectedResponsible);
+
     return rncData.filter(item => {
       const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
-      // Year Filter (Priority)
-      const matchYear = selectedYear ? (item.openDate && item.openDate.getFullYear().toString() === selectedYear) : true;
-      const matchMonth = selectedMonth ? (item.openDate && monthNames[item.openDate.getMonth()] === selectedMonth) : true;
-      const matchSector = selectedSector ? item.sector === selectedSector : true;
-      const matchType = selectedType ? item.type === selectedType : true;
-      const matchResponsible = selectedResponsible ? item.responsible === selectedResponsible : true;
+      // Year Filter
+      const matchYear = normYear ? (item.openDate && item.openDate.getFullYear().toString() === normYear) : true;
+      // Month Filter
+      const matchMonth = normMonth ? (item.openDate && monthNames[item.openDate.getMonth()] === normMonth) : true;
+      // Sector Filter
+      const matchSector = normSector ? item.sector === normSector : true;
+      // Type Filter
+      const matchType = normType ? item.type === normType : true;
+      // Responsible Filter
+      const matchResponsible = normResp ? item.responsible === normResp : true;
 
       return matchYear && matchMonth && matchSector && matchType && matchResponsible;
     });
