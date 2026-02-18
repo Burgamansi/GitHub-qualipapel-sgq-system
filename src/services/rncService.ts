@@ -10,7 +10,8 @@ import {
     query,
     limit,
     onSnapshot,
-    orderBy
+    orderBy,
+    serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { RNCRecord } from '../types';
@@ -66,27 +67,78 @@ export const rncService = {
      * Upsert multiple RNC records (Batch write)
      * Firestore batches are limited to 500 ops. We handle splitting here.
      */
+    /**
+     * Upsert a single RNC record
+     * Document ID is STRICTLY the RNC Number
+     */
+    async upsertRnc(rnc: RNCRecord): Promise<void> {
+        const numero = String(rnc.number).trim();
+        if (!numero || numero === "S/N") throw new Error("RNC sem número");
+
+        const docRef = doc(db, COLLECTION_NAME, numero).withConverter(rncConverter);
+
+        await setDoc(docRef, {
+            ...rnc,
+            number: numero, // Ensure consistency
+            updatedAt: serverTimestamp(),
+            // Preserve createdAt if exists in the record (from excel if applicable?), else ServerTimestamp
+            // Note: rncConverter handles the Date objects, but serverTimestamp is a FieldValue.
+            // If we are passing RNCRecord, it has Dates.
+            // We'll let the converter handle Date fields, but for metadata:
+            createdAt: rnc.openDate ? Timestamp.fromDate(rnc.openDate) : serverTimestamp()
+        }, { merge: true });
+    },
+
+    /**
+     * Upsert multiple RNC records (Batch write)
+     * Limit 500 writes per batch.
+     */
     async upsertMany(records: RNCRecord[]): Promise<void> {
         if (records.length === 0) return;
 
+        // 1. Log Numbers (Mandatory)
+        const validRecords = records.filter(r => r.number && String(r.number).trim() !== "" && String(r.number).trim() !== "S/N");
+        console.log("NUMEROS EXTRAIDOS:", validRecords.map(r => String(r.number).trim()));
+
+        if (validRecords.length === 0) return;
+
         try {
-            const batchSize = 450; // Safe margin below 500
+            const batchSize = 450;
             const chunks = [];
 
-            for (let i = 0; i < records.length; i += batchSize) {
-                chunks.push(records.slice(i, i + batchSize));
+            for (let i = 0; i < validRecords.length; i += batchSize) {
+                chunks.push(validRecords.slice(i, i + batchSize));
             }
 
             for (const chunk of chunks) {
                 const batch = writeBatch(db);
                 chunk.forEach(record => {
-                    // Doc ID must be rnc.id
-                    const docRef = doc(db, COLLECTION_NAME, record.id).withConverter(rncConverter);
-                    batch.set(docRef, record, { merge: true });
+                    const numero = String(record.number).trim();
+                    const docRef = doc(db, COLLECTION_NAME, numero).withConverter(rncConverter);
+
+                    // We constructed the record object. 
+                    // To support serverTimestamp for createdAt/updatedAt properly with the converter:
+                    // The converter expects RNCRecord. 
+                    // We can just pass the record, but we want to force ID usage.
+                    // And we want to ensure timestamps.
+
+                    // Since we are using withConverter, 'record' must match RNCRecord structure or close to it.
+                    // The converter toFirestore handles openDate/closeDate/deadline.
+                    // But we want to inject 'createdAt' metadata if possible, but RNCRecord type doesn't have it?
+                    // Checking type... RNCRecord in types.ts doesn't have createdAt/updatedAt.
+                    // We should just save the record data. 
+                    // Firestore will merge. 
+
+                    batch.set(docRef, {
+                        ...record,
+                        number: numero,
+                        updatedAt: serverTimestamp(),
+                        createdAt: record.openDate ? Timestamp.fromDate(record.openDate) : serverTimestamp()
+                    }, { merge: true });
                 });
                 await batch.commit();
             }
-            console.log(`Synced ${records.length} records to Firestore.`);
+            console.log(`Synced ${validRecords.length} records to Firestore.`);
         } catch (error) {
             console.error('Error upserting RNCs to Firestore:', error);
             throw error;
